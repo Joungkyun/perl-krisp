@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+# $Id: test.pl.in,v 1.5 2010-07-03 19:41:11 oops Exp $
+
+BEGIN { unshift(@INC, "./blib/arch/auto/KRISP") }
+use lib './lib';
+
+use strict;
+use Data::Dumper;
+use KRISP;
+
+my $kr;
+my $db;
+my $isp;
+
+$kr = KRISP->new ();
+
+my $modv  = $kr->mod_version ();
+my $moduv = $kr->mod_uversion ();
+my $ver   = $kr->version ();
+my $uver  = $kr->uversion ();
+
+print <<"EOL";
+--- VERSION PRINTING ------------------------------------------------
+LIBKRISP Perl Module Version      : $modv
+LIBKRISP Perl Module Long Version : $moduv
+LIBKRISP Version                  : $ver
+LIBKRISP Long Version             : $uver
+
+EOL
+
+my $ip = '168.126.63.1';
+my $long = $kr->ip2long ($ip);
+my $rip = $kr->long2ip ($long);
+
+my $start = '192.168.1.44';
+my $end   = '192.168.1.77';
+my $mask = $kr->netmask ($start, $end);
+my $network = $kr->network ($start, $mask);
+my $broad = $kr->broadcast($start, $mask);
+my $prefix = $kr->mask2prefix ($mask);
+
+print <<"EOL";
+--- IP Managenet ----------------------------------------------------
+GIVEN IP Address       : $ip
+Convert Long IP        : $long
+Convert IP             : $rip
+GIVEN IP Range         : $start <-> $end
+         network       : $network
+         broadcast     : $broad
+         netmask       : $mask ($prefix)
+
+EOL
+
+#
+# search / search_ex API usage
+#
+
+#$db = $kr->open ('/usr/share/krisp/krisp.dat');
+$db = $kr->open ();
+exit (1) if ( $db eq undef );
+
+my $host = 'kornet.net';
+my $err;
+my $isp = $kr->search ($db, $host, $err);
+if ( $isp eq undef ) {
+	print $err . "\n";
+	exit (1);
+}
+
+#foreach my $k ( $kr->search_key ) {
+#	printf "%10s => %s\n", $k, $isp->{$k};
+#}
+
+$isp->{'prefix'} = $kr->mask2prefix ($isp->{'netmask'});
+
+print <<"EOL";
+--- Host Inforamtion (search api) -----------------------------------
+Host         : $host
+IP           : $isp->{'ip'}
+RANGE        : $isp->{'start'} - $isp->{'end'}
+NETMASK      : $isp->{'netmask'} (/$isp->{'prefix'})
+NETWORK      : $isp->{'network'}
+BROADCAST    : $isp->{'broadcast'}
+ISP CODE     : $isp->{'icode'}
+ISP NAME     : $isp->{'iname'}
+COUNTRY CODE : $isp->{'ccode'}
+COUNTRY NAME : $isp->{'cname'}
+
+EOL
+
+
+$isp = undef;
+$isp = $kr->search_ex ($db, $host, 'krisp', $err);
+if ( $isp eq undef ) {
+	print $err . "\n";
+	exit (1);
+}
+
+#foreach my $k ( $kr->search_key_ex ) {
+#	next if ( $k eq 'dummy' );
+#	printf "%10s => %s\n", $k, $isp->{$k};
+#}
+
+print <<"EOL";
+--- Host Inforamtion (search_ex api) -----------------------------------
+Host         : $host
+IP           : $isp->{'ip'}
+RANGE        : $isp->{'start'} - $isp->{'end'}
+EOL
+
+my $i;
+for ( $i=0; $i<$isp->{'size'}; $i++ ) {
+	printf "%-12s : %s\n", 'DUMMY[' . $i . ']', $isp->{'dummy'}[$i];
+}
+
+$kr->close ($db);
+
+exit (1);
